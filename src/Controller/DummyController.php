@@ -49,10 +49,15 @@ class DummyController extends AbstractController
     public function create(Request $request): JsonResponse
     {
         // Mendapatkan data dari form-data
-        $name = $request->request->get('name');
-        $hobby = $request->request->get('hobby');
-        $description = $request->request->get('description'); 
-    
+        // $name = $request->request->get('name');
+        // $hobby = $request->request->get('hobby');
+        // $description = $request->request->get('description');
+        $data = json_decode($request->getContent(), true);
+
+        $name = $data['name'] ?? null;
+        $hobby = $data['hobby'] ?? null;
+        $description = $data['description'] ?? null;
+
         // Pengecekan manual apakah field kosong
         $errorsMessage = [];
         if (empty($name)) {
@@ -64,22 +69,22 @@ class DummyController extends AbstractController
         if (empty($description)) {
             $errorsMessage[] = 'Description Tidak Boleh Kosong';
         }
-    
+
         // Jika ada pesan error, kembalikan response dengan status HTTP_BAD_REQUEST
         if (!empty($errorsMessage)) {
             return $this->json(['errors' => implode(', ', $errorsMessage)], Response::HTTP_BAD_REQUEST);
         }
-    
+
         // Membuat entitas Dummy
         $dummy = new Dummy();
         $dummy->setName($name);
         $dummy->setHobby($hobby);
         $dummy->setDescription($description);
         $dummy->setCreatedAt(new \DateTime());
-    
+
         // Validasi entitas
         $errors = $this->validator->validate($dummy);
-    
+
         // Jika ada error validasi, kirim response dengan error message
         if (count($errors) > 0) {
             $validationErrors = [];
@@ -88,57 +93,56 @@ class DummyController extends AbstractController
             }
             return $this->json(['errors' => implode(', ', $validationErrors)], Response::HTTP_BAD_REQUEST);
         }
-    
+
         // Jika validasi berhasil, simpan entitas ke database
         $this->entityManager->persist($dummy);
         $this->entityManager->flush();
-    
-        return $this->json(['success'=> 'Berhasil Ditambahkan', 'data' => $dummy], Response::HTTP_CREATED);
+
+        return $this->json(['success' => 'Berhasil Ditambahkan', 'data' => $dummy], Response::HTTP_CREATED);
     }
-    
 
     #[Route('/{id}/edit', name: 'edit', methods: ['PUT'])]
     public function edit(Request $request, int $id): JsonResponse
     {
-        // $data = json_decode($request->getContent(), true);
-
         $dummy = $this->dummyRepository->find($id);
 
         if (!$dummy) {
             return $this->json(['errors' => 'Data tidak ditemukan'], Response::HTTP_NOT_FOUND);
         }
 
-        $name = $request->request->get('name');
-        $hobby = $request->request->get('hobby');
-        $description = $request->request->get('description');
+        $data = json_decode($request->getContent(), true);
 
+        $name = $data['name'] ?? null;
+        $hobby = $data['hobby'] ?? null;
+        $description = $data['description'] ?? null;
+
+        if (empty($name) || empty($hobby) || empty($description)) {
+            $errorMessages = [];
+            if (empty($name)) {
+                $errorMessages[] = 'Name tidak boleh kosong';
+            }
+
+            if (empty($hobby)) {
+                $errorMessages[] = 'Hobby tidak boleh kosong';
+            }
+
+            if (empty($description)) {
+                $errorMessages[] = 'Description tidak boleh kosong';
+            }
+
+            return $this->json(['errors' => implode(', ', $errorMessages)], Response::HTTP_BAD_REQUEST);
+        }
 
         $dummy->setName($name ?? $dummy->getName());
         $dummy->setHobby($hobby ?? $dummy->getHobby());
         $dummy->setDescription($description ?? $dummy->getDescription());
-        $dummy->setUpdatedAt(new \DateTime()); // Assuming you have a setUpdatedAt method for timestamps
+        $dummy->setUpdatedAt(new \DateTime());
 
-        // Validate entity
-        if (empty($name) || empty($hobby) || empty($description)) {
-            $errorMessages = [];
-    
-            if (empty($name)) {
-                $errorMessages[] = 'Name tidak boleh kosong';
-            }
-            if (empty($hobby)) {
-                $errorMessages[] = 'Hobby tidak boleh kosong';
-            }
-            if (empty($description)) {
-                $errorMessages[] = 'Description tidak boleh kosong';
-            }
-    
-            return $this->json(['errors' => implode(', ', $errorMessages)], Response::HTTP_BAD_REQUEST);
-        }
         $this->entityManager->flush();
-    
-        return $this->json($dummy, Response::HTTP_OK);
+
+        // Tambahkan pesan sukses di sini
+        return $this->json(['success' => 'Data berhasil diperbarui', 'dummy' => $dummy], Response::HTTP_OK);
     }
- 
 
     #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
     public function delete(int $id): JsonResponse
